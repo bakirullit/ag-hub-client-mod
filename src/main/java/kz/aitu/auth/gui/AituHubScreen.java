@@ -138,12 +138,11 @@ public class AituHubScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        // 1. Render opaque solid backdrop covering the entire screen to prevent GUI blur shader degradation
-        guiGraphics.fill(0, 0, this.width, this.height, 0xE0101014);
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        super.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
 
-        Font font = this.font;
-        int centerX = this.width / 2;
+        // Opaque solid backdrop covering the entire screen to prevent GUI blur shader bleed
+        guiGraphics.fill(0, 0, this.width, this.height, 0xE0101014);
 
         // Top Header Backdrop Banner (clean opaque dark modal frame)
         guiGraphics.fill(0, 0, this.width, 52, 0xFF0D111A);
@@ -153,24 +152,35 @@ public class AituHubScreen extends Screen {
         guiGraphics.fill(0, this.height - 32, this.width, this.height, 0xFF0D111A);
         guiGraphics.fill(0, this.height - 32, this.width, this.height - 31, 0xFF2A3648);
 
-        // Top App Header Title (crisp high-contrast gold with drop-shadow and full 0xFF alpha)
+        // Render Active Tab Background Panels (e.g. dialog container box behind widgets)
+        if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabs.size()) {
+            this.tabs.get(this.currentTabIndex).renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        // Step 1: Call super.render FIRST (this executes background, blur pass, and default widgets)
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+
+        Font font = this.font;
+        int centerX = this.width / 2;
+
+        // Step 2: ONLY AFTER super.render, render all text labels, headers, status messages, and custom overlays:
         Component titleComponent = Component.literal("AITU GAMING HUB").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
         int titleWidth = font.width(titleComponent);
         guiGraphics.drawString(font, titleComponent, centerX - (titleWidth / 2), 9, 0xFFFFD700, true);
-
-        // Render Active Tab Content
-        if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabs.size()) {
-            this.tabs.get(this.currentTabIndex).render(guiGraphics, mouseX, mouseY, partialTick);
-        }
-
-        // Render widgets (tab buttons, sub-panel inputs, back button)
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         // Render Active Tab Indicator Underline
         if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabButtons.size()) {
             Button activeBtn = this.tabButtons.get(this.currentTabIndex);
             int underlineY = activeBtn.getY() + activeBtn.getHeight() + 2;
             guiGraphics.fill(activeBtn.getX() + 4, underlineY, activeBtn.getX() + activeBtn.getWidth() - 4, underlineY + 2, 0xFF00E676);
+        }
+
+        // Render Active Tab Text, Labels, and Overlays strictly after super.render:
+        if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabs.size()) {
+            this.tabs.get(this.currentTabIndex).render(guiGraphics, mouseX, mouseY, partialTick);
         }
     }
 

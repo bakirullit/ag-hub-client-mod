@@ -130,8 +130,7 @@ public class SettingsTab implements AituTab {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        Font font = Minecraft.getInstance().font;
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         int centerX = contentX + contentWidth / 2;
         int boxWidth = 320;
         int boxHeight = 250;
@@ -142,7 +141,20 @@ public class SettingsTab implements AituTab {
         guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
         guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
 
-        // Header Title (Crisp Gold with drop-shadow and full 0xFF alpha)
+        // Additional information divider
+        guiGraphics.fill(boxX + 14, boxY + 192, boxX + boxWidth - 14, boxY + 193, 0xFF243248);
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        Font font = Minecraft.getInstance().font;
+        int centerX = contentX + contentWidth / 2;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int boxX = centerX - boxWidth / 2;
+
+        // Header Title (Crisp Gold with drop-shadow and full 0xFF alpha, rendered strictly after super.render)
         Component titleComp = Component.literal("Client Settings & Options").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
         int titleWidth = font.width(titleComp);
         guiGraphics.drawString(font, titleComp, centerX - (titleWidth / 2), boxY + 14, 0xFFFFD700, true);
@@ -158,7 +170,7 @@ public class SettingsTab implements AituTab {
         );
         guiGraphics.drawString(
                 font,
-                Component.literal("1.2.0 (NeoForge 1.21.1)").withStyle(ChatFormatting.AQUA),
+                Component.literal("1.2.1 (NeoForge 1.21.1)").withStyle(ChatFormatting.AQUA),
                 boxX + 110,
                 boxY + 34,
                 0xFF55FFFF,
@@ -195,9 +207,7 @@ public class SettingsTab implements AituTab {
             );
         }
 
-        // Additional information divider & footer
-        guiGraphics.fill(boxX + 14, boxY + 192, boxX + boxWidth - 14, boxY + 193, 0xFF243248);
-
+        // Additional information footer
         guiGraphics.drawString(
                 font,
                 Component.literal("Storage:").withStyle(ChatFormatting.WHITE),

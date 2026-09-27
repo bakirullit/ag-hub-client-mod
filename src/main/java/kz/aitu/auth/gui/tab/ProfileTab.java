@@ -241,6 +241,19 @@ public class ProfileTab implements AituTab {
     }
 
     @Override
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        int centerX = contentX + contentWidth / 2;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int boxX = centerX - boxWidth / 2;
+
+        // Opaque boxed dialog container (width: 320, height: 250) with crisp outline
+        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
+        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
+    }
+
+    @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         int centerX = contentX + contentWidth / 2;
@@ -259,15 +272,10 @@ public class ProfileTab implements AituTab {
         int boxWidth = 320;
         int boxHeight = 250;
         int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
-        int boxX = centerX - boxWidth / 2;
         int fieldWidth = 280;
         int fieldX = centerX - fieldWidth / 2;
 
-        // 1. Opaque boxed dialog container (width: 320, height: 250) with crisp outline
-        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
-        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
-
-        // 2. Section Title (Crisp High-Contrast Gold with Drop Shadow and full 0xFF alpha)
+        // 1. Section Title (Crisp High-Contrast Gold with Drop Shadow and full 0xFF alpha)
         Component titleComp = Component.literal("AITU Account Sign In").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
         int titleWidth = font.width(titleComp);
         guiGraphics.drawString(font, titleComp, centerX - (titleWidth / 2), boxY + 14, 0xFFFFD700, true);
@@ -321,10 +329,6 @@ public class ProfileTab implements AituTab {
         int boxHeight = 250;
         int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
         int boxX = centerX - boxWidth / 2;
-
-        // Opaque boxed dialog container (width: 320, height: 250) with crisp outline
-        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
-        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
 
         // Player Head Avatar (36x36)
         int avatarX = boxX + 16;

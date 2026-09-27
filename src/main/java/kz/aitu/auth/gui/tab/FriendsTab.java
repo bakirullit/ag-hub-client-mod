@@ -122,8 +122,7 @@ public class FriendsTab implements AituTab {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        Font font = Minecraft.getInstance().font;
+    public void renderBackground(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         int centerX = contentX + contentWidth / 2;
         int boxWidth = 320;
         int boxHeight = 250;
@@ -133,8 +132,18 @@ public class FriendsTab implements AituTab {
         // Opaque boxed dialog container (width: 320, height: 250)
         guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
         guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
+    }
 
-        // Header Title (Crisp Gold with drop-shadow and full 0xFF alpha)
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        Font font = Minecraft.getInstance().font;
+        int centerX = contentX + contentWidth / 2;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int boxX = centerX - boxWidth / 2;
+
+        // Header Title (Crisp Gold with drop-shadow and full 0xFF alpha, rendered strictly after super.render)
         Component titleComp = Component.literal("Online Friends").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
         guiGraphics.drawString(font, titleComp, boxX + 14, boxY + 12, 0xFFFFD700, true);
 

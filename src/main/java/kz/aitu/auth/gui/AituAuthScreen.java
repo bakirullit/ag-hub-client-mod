@@ -210,36 +210,29 @@ public class AituAuthScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        // Step 1: Call super.render FIRST
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         int centerX = this.width / 2;
 
-        // Title
-        guiGraphics.drawCenteredString(
-                this.font,
-                this.title.copy().withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-                centerX,
-                12,
-                0xFFFFFF
-        );
+        // Step 2: ONLY AFTER super.render, render all text labels and headers:
+        Component titleComp = this.title.copy().withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+        int titleWidth = this.font.width(titleComp);
+        guiGraphics.drawString(this.font, titleComp, centerX - (titleWidth / 2), 12, 0xFFFFD700, true);
 
         // Instruction
-        guiGraphics.drawCenteredString(
-                this.font,
-                Component.translatable("aitu_auth.instruction.1").withStyle(ChatFormatting.GRAY),
-                centerX,
-                32,
-                0xAAAAAA
-        );
+        Component instComp = Component.translatable("aitu_auth.instruction.1").withStyle(ChatFormatting.GRAY);
+        int instWidth = this.font.width(instComp);
+        guiGraphics.drawString(this.font, instComp, centerX - (instWidth / 2), 32, 0xFFAAAAAA, true);
 
-        // Input Labels
+        // Input Labels (with drop-shadow and full 0xFF alpha)
         guiGraphics.drawString(
                 this.font,
                 Component.literal("Linking Token or JSON:").withStyle(ChatFormatting.YELLOW),
                 centerX - 155,
                 78,
-                0xFFFFFF
+                0xFFFFFFFF,
+                true
         );
 
         guiGraphics.drawString(
@@ -247,17 +240,21 @@ public class AituAuthScreen extends Screen {
                 Component.literal("Telegram ID:").withStyle(ChatFormatting.YELLOW),
                 centerX - 155,
                 114,
-                0xFFFFFF
+                0xFFFFFFFF,
+                true
         );
 
         // Status or Error Message
         if (this.statusMessage != null && !this.statusMessage.getString().isEmpty()) {
-            guiGraphics.drawCenteredString(
+            int msgWidth = this.font.width(this.statusMessage);
+            int color = this.isSuccessStatus ? 0xFF55FF55 : 0xFFFF5555;
+            guiGraphics.drawString(
                     this.font,
                     this.statusMessage,
-                    centerX,
+                    centerX - (msgWidth / 2),
                     190,
-                    this.isSuccessStatus ? 0x55FF55 : 0xFF5555
+                    color,
+                    true
             );
         }
     }
