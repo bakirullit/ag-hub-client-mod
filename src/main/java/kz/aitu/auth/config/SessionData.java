@@ -18,13 +18,28 @@ public class SessionData {
     @SerializedName("telegram_id")
     private long telegramId;
 
+    @SerializedName("telegram_tag")
+    private String telegramTag;
+
     public SessionData() {
     }
 
     public SessionData(String sessionToken, String cachedNickname, long telegramId) {
+        this(sessionToken, cachedNickname, telegramId, null);
+    }
+
+    public SessionData(String sessionToken, String cachedNickname, long telegramId, String telegramTag) {
         this.sessionToken = sessionToken != null ? sessionToken.trim() : null;
         this.cachedNickname = cachedNickname != null ? cachedNickname.trim() : null;
         this.telegramId = telegramId;
+        this.telegramTag = formatTag(telegramTag);
+    }
+
+    private static String formatTag(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return null;
+        return trimmed.startsWith("@") ? trimmed : "@" + trimmed;
     }
 
     public String getSessionToken() {
@@ -51,6 +66,20 @@ public class SessionData {
         this.telegramId = telegramId;
     }
 
+    public String getTelegramTag() {
+        if (telegramTag != null && !telegramTag.isEmpty()) {
+            return telegramTag;
+        }
+        if (cachedNickname != null && !cachedNickname.isEmpty()) {
+            return "@" + cachedNickname;
+        }
+        return "@player";
+    }
+
+    public void setTelegramTag(String telegramTag) {
+        this.telegramTag = formatTag(telegramTag);
+    }
+
     /**
      * Checks if this session object contains valid, non-empty data.
      */
@@ -67,12 +96,13 @@ public class SessionData {
         SessionData that = (SessionData) o;
         return telegramId == that.telegramId &&
                 Objects.equals(sessionToken, that.sessionToken) &&
-                Objects.equals(cachedNickname, that.cachedNickname);
+                Objects.equals(cachedNickname, that.cachedNickname) &&
+                Objects.equals(telegramTag, that.telegramTag);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(sessionToken, cachedNickname, telegramId);
+        return Objects.hash(sessionToken, cachedNickname, telegramId, telegramTag);
     }
 
     @Override
@@ -81,6 +111,7 @@ public class SessionData {
                 "sessionToken='" + (sessionToken != null ? "[PROTECTED]" : "null") + '\'' +
                 ", cachedNickname='" + cachedNickname + '\'' +
                 ", telegramId=" + telegramId +
+                ", telegramTag='" + telegramTag + '\'' +
                 '}';
     }
 }

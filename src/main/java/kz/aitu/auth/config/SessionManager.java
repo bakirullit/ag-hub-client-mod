@@ -113,8 +113,8 @@ public class SessionManager {
             }
 
             this.cachedSession = session;
-            LOGGER.info("[AITU Auth] Loaded valid AITU session for player '{}' (Telegram ID: {}).",
-                    session.getCachedNickname(), session.getTelegramId());
+            LOGGER.info("[AITU Auth] Loaded valid AITU session for player '{}' ({}, Telegram ID: {}).",
+                    session.getCachedNickname(), session.getTelegramTag(), session.getTelegramId());
             return true;
         } catch (JsonSyntaxException e) {
             LOGGER.error("[AITU Auth] Malformed JSON in session file {}: {}", path.toAbsolutePath(), e.getMessage());
@@ -131,10 +131,14 @@ public class SessionManager {
         }
     }
 
-    /**
-     * Saves session token, nickname, and telegram id to .minecraft/config/aitu_session.json.
-     */
     public synchronized void saveSession(String sessionToken, String cachedNickname, long telegramId) throws IOException {
+        saveSession(sessionToken, cachedNickname, telegramId, null);
+    }
+
+    /**
+     * Saves session token, nickname, telegram id, and telegram tag to .minecraft/config/aitu_session.json.
+     */
+    public synchronized void saveSession(String sessionToken, String cachedNickname, long telegramId, String telegramTag) throws IOException {
         if (sessionToken == null || sessionToken.trim().isEmpty()) {
             throw new IllegalArgumentException("Session token must not be null or empty.");
         }
@@ -148,7 +152,7 @@ public class SessionManager {
             Files.createDirectories(parent);
         }
 
-        SessionData newSession = new SessionData(sessionToken.trim(), cachedNickname.trim(), telegramId);
+        SessionData newSession = new SessionData(sessionToken.trim(), cachedNickname.trim(), telegramId, telegramTag);
         String json = GSON.toJson(newSession);
 
         // Atomic write via temp file
@@ -158,7 +162,8 @@ public class SessionManager {
 
         this.cachedSession = newSession;
         this.lastModifiedTime = Files.getLastModifiedTime(path).toMillis();
-        LOGGER.info("[AITU Auth] Successfully saved AITU session for '{}' to {}", cachedNickname, path.toAbsolutePath());
+        LOGGER.info("[AITU Auth] Successfully saved AITU session for '{}' ({}) to {}",
+                cachedNickname, newSession.getTelegramTag(), path.toAbsolutePath());
     }
 
     /**
@@ -179,14 +184,18 @@ public class SessionManager {
         }
     }
 
+    public SessionData parseInputToken(String rawInput, String fallbackNickname, long fallbackTelegramId) {
+        return parseInputToken(rawInput, fallbackNickname, fallbackTelegramId, null);
+    }
+
     /**
      * Parses user input from the auth screen.
      * Supports:
-     * 1. Full JSON format {"session_token": "...", "cached_nickname": "...", "telegram_id": ...}
+     * 1. Full JSON format {"session_token": "...", "cached_nickname": "...", "telegram_id": ..., "telegram_tag": ...}
      * 2. Delimited format: <telegram_id>:<token> or <telegram_id>_<token>
      * 3. Raw token string (defaults nickname to current user, telegram_id to 0 or parsed if provided)
      */
-    public SessionData parseInputToken(String rawInput, String fallbackNickname, long fallbackTelegramId) {
+    public SessionData parseInputToken(String rawInput, String fallbackNickname, long fallbackTelegramId, String fallbackTag) {
         if (rawInput == null) return null;
         String trimmed = rawInput.trim();
         if (trimmed.isEmpty()) return null;
@@ -198,9 +207,10 @@ public class SessionManager {
                 String token = json.has("session_token") ? json.get("session_token").getAsString() : null;
                 String nick = json.has("cached_nickname") ? json.get("cached_nickname").getAsString() : fallbackNickname;
                 long tgId = json.has("telegram_id") ? json.get("telegram_id").getAsLong() : fallbackTelegramId;
+                String tgTag = json.has("telegram_tag") ? json.get("telegram_tag").getAsString() : fallbackTag;
 
                 if (token != null && !token.trim().isEmpty()) {
-                    return new SessionData(token, nick, tgId);
+                    return new SessionData(token, nick, tgId, tgTag);
                 }
             } catch (Exception ignored) {
             }
@@ -214,14 +224,14 @@ public class SessionManager {
             try {
                 long tgId = Long.parseLong(left);
                 if (!right.isEmpty()) {
-                    return new SessionData(right, fallbackNickname, tgId);
+                    return new SessionData(right, fallbackNickname, tgId, fallbackTag);
                 }
             } catch (NumberFormatException ignored) {
             }
         }
 
         // Plain token format
-        return new SessionData(trimmed, fallbackNickname, fallbackTelegramId);
+        return new SessionData(trimmed, fallbackNickname, fallbackTelegramId, fallbackTag);
     }
 
     private void checkAndReloadIfModified() {

@@ -1,6 +1,6 @@
 # AITU Auth Client (`aitu_auth_client`)
 
-Client-only NeoForge mod for Minecraft **1.21.1** providing authentication and account linking with the **AITU Gaming Hub** Telegram bot.
+Client-only NeoForge mod for Minecraft **1.21.1** providing authentication, profile management, and account linking with the **AITU Gaming Hub** Telegram bot.
 
 ---
 
@@ -13,36 +13,47 @@ Client-only NeoForge mod for Minecraft **1.21.1** providing authentication and a
   {
     "session_token": "string",
     "cached_nickname": "string",
-    "telegram_id": 123456789
+    "telegram_id": 123456789,
+    "telegram_tag": "@username"
   }
   ```
 - **Singleton `SessionManager` (`kz.aitu.auth.config.SessionManager`):**
   - Thread-safe singleton providing `hasValidSession()`, `getSession()`, `getSessionToken()`, `saveSession(...)`, and `clearSession()`.
   - Atomic file writing via temporary files to avoid corrupted states.
   - Robust error handling: gracefully catches `JsonSyntaxException`, `IOException`, empty files, and partial JSON structures without crashing the game.
-  - Smart input parsing: supports raw token strings, `<telegram_id>:<token>` delimited strings, and direct JSON payloads.
+  - Smart input parsing: supports raw token strings, `<telegram_id>:<token>` delimited strings, and direct JSON payloads with automatic `@` tag formatting.
 
 ---
 
-### 2. UI Injection & Account Linking Screen
-- **Mixin on `TitleScreen` (`kz.aitu.auth.mixin.TitleScreenMixin`):**
-  - Injects at the end of `TitleScreen#init()`.
-  - If `aitu_session.json` is missing or invalid:
-    - Renders a warning button in the top-right corner: `⚠ Link AITU Account`.
-    - Clicking it opens `AituAuthScreen`.
-  - If a valid session is present:
-    - Renders a subtle `✔ AITU Linked` badge button allowing players to inspect their linked Telegram ID or unlink/switch accounts.
-- **`AituAuthScreen` (`kz.aitu.auth.gui.AituAuthScreen`):**
-  - **Copy Telegram Bot Link:** Copies `https://t.me/aitu_gaming_bot?start=link` to the system clipboard and provides instant visual feedback.
-  - **Open in Browser:** Directly opens the Telegram bot link in the user's default browser.
-  - **Token Input Box:** Accepts one-time linking tokens or session JSON payloads.
-  - **Telegram ID Input:** Optional field for manual Telegram ID entry if entering raw tokens.
-  - **Submit & Refresh:** Validates format, writes to `.minecraft/config/aitu_session.json`, and returns to the parent `TitleScreen`, automatically refreshing the UI state.
+### 2. UI Architecture
+
+#### Top-Right Profile Widget (`TitleScreenMixin` & `AituProfileWidget`)
+- Replaces generic text buttons with a sleek, compact profile badge in the top-right corner of the Minecraft Title Screen:
+  - **Unlinked State:** Displays a guest profile silhouette with a subtle amber warning dot, "Sign In" label, and informative tooltip.
+  - **Linked State:** Displays the player's 3D skin face avatar via `PlayerFaceRenderer`, cached `@tag`, and a vibrant green active indicator dot.
+- Clicking the widget opens **`AituHubScreen`**.
+
+#### Tabbed Modular Container (`AituHubScreen`)
+- Responsive modular container with a top Tab Navigation bar and sub-panel rendering:
+  - **Tab 1: Profile & Authentication (Active by default)**
+    - *When Unlinked:*
+      - Direct "Get Code from @aitu_gaming_bot" button (copies link & opens browser).
+      - Field 1: Telegram Tag / Username (`@username`).
+      - Field 2: 6-digit Code (strictly numeric, max 6 characters).
+      - "Verify & Link" button to finalize login and immediately update UI state.
+    - *When Linked:*
+      - Rich User Card displaying player face avatar, Nickname, Telegram `@tag`, Telegram ID, and active status pill.
+      - "Log Out / Unlink" button that clears local session data and resets to the sign-in form.
+  - **Tab 2: Friends (`FriendsTab`)**
+    - Foundation stub announcing upcoming university social, party, and invite features.
+  - **Tab 3: Settings (`SettingsTab`)**
+    - Client diagnostics, version info, session disk reload button, and direct Telegram community links.
+- Uses dynamic layout calculations (`width / 2`, relative Y offsets) to prevent widget overlapping across all GUI scales.
 
 ---
 
 ### 3. Network Configuration Handshake
-- Registered during `RegisterPayloadHandlersEvent` on the `MOD` event bus using `IPayloadRegistrar` / `PayloadRegistrar`:
+- Registered during `RegisterPayloadHandlersEvent` on the `MOD` event bus using `PayloadRegistrar`:
   - **Client-to-Server Payload (`aitu_auth:token_payload`):**
     - `AuthTokenPayload(String sessionToken)` implementing `CustomPacketPayload` using `StreamCodec` (`ByteBufCodecs.STRING_UTF8`).
     - Registered via `registrar.configurationToServer(...)`.
@@ -54,11 +65,11 @@ Client-only NeoForge mod for Minecraft **1.21.1** providing authentication and a
   1. During the server configuration phase, server triggers authentication with `aitu_auth:challenge_payload`.
   2. Client receives `ChallengePayload` and queries `SessionManager.getInstance().hasValidSession()`.
   3. If a valid token exists, client automatically responds with `AuthTokenPayload(sessionToken)` via `context.reply(...)`.
-  4. If no token exists or the session is invalid, the client gracefully disconnects with an informative message instructing the user to link their account in the title screen.
+  4. If no token exists or the session is invalid, the client gracefully disconnects with an informative message instructing the user to sign in on the title screen.
 
 ---
 
-## 🛠️ Building & Running
+## 🛠️ Building & Testing
 
 ### Prerequisites
 - JDK 21 (Java 21)
@@ -67,15 +78,7 @@ Client-only NeoForge mod for Minecraft **1.21.1** providing authentication and a
 ```bash
 ./gradlew build
 ```
-The output mod JAR will be located at:
-```
-build/libs/aitu_auth_client-1.0.0.jar
-```
-
-### Run Client in Development Environment
-```bash
-./gradlew runClient
-```
+Output JAR: `build/libs/aitu_auth_client-1.1.0.jar`
 
 ### Run Unit Tests
 ```bash
