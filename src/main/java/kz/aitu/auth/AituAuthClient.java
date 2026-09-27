@@ -35,5 +35,8 @@ public class AituAuthClient {
         } else {
             LOGGER.info("[AITU Auth] No valid session found in config/aitu_session.json. Link button will be displayed on TitleScreen.");
         }
+
+        // Asynchronously fetch latest server info and initialize pinned server cache
+        kz.aitu.auth.server.AituServerManager.updateServerInfoAsync(null);
     }
 }

@@ -1,6 +1,7 @@
 package kz.aitu.auth.gui.tab;
 
 import kz.aitu.auth.AituAuthClient;
+import kz.aitu.auth.api.AituApiClient;
 import kz.aitu.auth.config.SessionData;
 import kz.aitu.auth.config.SessionManager;
 import kz.aitu.auth.gui.AituHubScreen;
@@ -22,8 +23,10 @@ import java.io.IOException;
 
 /**
  * Profile & Authentication Tab for AituHubScreen.
- * - When Not Logged In: Renders clean, high-contrast input layout with dedicated darkened panel.
- * - When Logged In: Renders rich User Card with nickname, avatar, Telegram handle, status badge, and Log Out button.
+ * - When Unlinked: Telegram handle field (@username), 6-digit PIN field, "Verify & Link" button, and "Get Code via Bot" button.
+ * - When Linked: User card displaying Player Skin / Head, @TelegramHandle, Linked Status Badge (Green), and "Log Out / Unlink" button.
+ * Uses an opaque boxed dialog container (width: 320, height: 250) to prevent blur shader degradation,
+ * with >=12px label vertical spacing and full 0xFF alpha drop-shadow strings.
  */
 public class ProfileTab implements AituTab {
 
@@ -47,6 +50,7 @@ public class ProfileTab implements AituTab {
     // Dynamic Feedback
     private Component statusMessage = Component.empty();
     private boolean isSuccessStatus = false;
+    private boolean isVerifying = false;
 
     @Override
     public Component getTitle() {
@@ -79,86 +83,87 @@ public class ProfileTab implements AituTab {
     }
 
     private void initUnlinkedView(int centerX) {
-        int panelWidth = Math.min(320, contentWidth - 20);
-        int panelHeight = 222;
-        int panelY = Math.max(contentY + 6, contentY + (contentHeight - panelHeight) / 2);
-        int fieldWidth = panelWidth - 40;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int fieldWidth = 280;
         int fieldX = centerX - fieldWidth / 2;
 
-        // 1. "Get Code from @aitu_gaming_bot" button
-        // Y = panelY + 54 (provides 17px padding below subtitle ending at panelY + 37)
+        Font font = Minecraft.getInstance().font;
+
+        // 1. "Get Code via Bot" button
         this.getCodeButton = Button.builder(
-                Component.literal("💬 Get Code from @aitu_gaming_bot"),
+                Component.literal("💬 Get Code via Bot"),
                 btn -> {
                     Minecraft mc = Minecraft.getInstance();
                     mc.keyboardHandler.setClipboard(AituAuthClient.TELEGRAM_BOT_URL);
                     Util.getPlatform().openUri(AituAuthClient.TELEGRAM_BOT_URL);
-                    this.statusMessage = Component.literal("✔ Opened Telegram & copied link to clipboard!").withStyle(ChatFormatting.GREEN);
+                    this.statusMessage = Component.literal("✔ Opened Bot & copied link to clipboard!").withStyle(ChatFormatting.GREEN);
                     this.isSuccessStatus = true;
                 }
-        ).bounds(fieldX, panelY + 54, fieldWidth, 20)
-        .tooltip(Tooltip.create(Component.literal("Opens the AITU Telegram bot in your browser and copies the direct link.")))
+        ).bounds(fieldX, boxY + 44, fieldWidth, 20)
+        .tooltip(Tooltip.create(Component.literal("Opens @aitu_gaming_bot in your browser and copies link.")))
         .build();
         screen.registerTabWidget(this.getCodeButton);
 
-        // 2. Field 1: Telegram Tag / Username EditBox
-        // Starts at Y = panelY + 100 (provides 7px gap below label ending at panelY + 93)
-        Font font = Minecraft.getInstance().font;
+        // 2. Field 1: Telegram Handle (@username)
+        // EditBox sits at Y = boxY + 98; Label sits at Y = boxY + 82 (16px vertical distance >= 12px)
         this.tagEditBox = new EditBox(
                 font,
                 fieldX,
-                panelY + 100,
+                boxY + 98,
                 fieldWidth,
                 20,
-                Component.literal("Telegram Tag")
+                Component.literal("Telegram Handle")
         );
         this.tagEditBox.setMaxLength(64);
         this.tagEditBox.setHint(Component.literal("@username").withStyle(ChatFormatting.DARK_GRAY));
         screen.registerTabWidget(this.tagEditBox);
 
-        // 3. Field 2: 6-digit Code (numeric input, max 6 characters)
-        // Starts at Y = panelY + 144 (provides 7px gap below label ending at panelY + 137)
+        // 3. Field 2: 6-digit PIN
+        // EditBox sits at Y = boxY + 154; Label sits at Y = boxY + 138 (16px vertical distance >= 12px)
         this.codeEditBox = new EditBox(
                 font,
                 fieldX,
-                panelY + 144,
+                boxY + 154,
                 fieldWidth,
                 20,
-                Component.literal("6-digit Code")
+                Component.literal("6-digit PIN")
         );
         this.codeEditBox.setMaxLength(6);
         this.codeEditBox.setFilter(text -> text.matches("\\d*"));
-        this.codeEditBox.setHint(Component.literal("Enter 6-digit code").withStyle(ChatFormatting.DARK_GRAY));
+        this.codeEditBox.setHint(Component.literal("Enter 6-digit PIN").withStyle(ChatFormatting.DARK_GRAY));
         screen.registerTabWidget(this.codeEditBox);
 
         // 4. "Verify & Link" button
-        // Y = panelY + 172
         this.verifyButton = Button.builder(
                 Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD),
                 btn -> handleVerify()
-        ).bounds(fieldX, panelY + 172, fieldWidth, 22)
+        ).bounds(fieldX, boxY + 186, fieldWidth, 22)
         .build();
         screen.registerTabWidget(this.verifyButton);
     }
 
     private void initLinkedView(int centerX) {
-        int cardWidth = Math.min(320, contentWidth - 20);
-        int cardHeight = 150;
-        int cardY = Math.max(contentY + 8, contentY + (contentHeight - cardHeight) / 2);
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
 
         // "Log Out / Unlink" button
         this.logoutButton = Button.builder(
                 Component.literal("✖ Log Out / Unlink").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
                 btn -> handleLogout()
-        ).bounds(centerX - 80, cardY + 116, 160, 20)
+        ).bounds(centerX - 80, boxY + 206, 160, 20)
         .tooltip(Tooltip.create(Component.literal("Removes local session data and unlinks this client.")))
         .build();
         screen.registerTabWidget(this.logoutButton);
     }
 
     private void handleVerify() {
+        if (this.isVerifying) return;
+
         String tag = this.tagEditBox.getValue().trim();
-        String code = this.codeEditBox.getValue().trim();
+        String pin = this.codeEditBox.getValue().trim();
 
         if (tag.isEmpty()) {
             this.statusMessage = Component.literal("Please enter your Telegram handle (e.g. @username)").withStyle(ChatFormatting.RED);
@@ -166,30 +171,63 @@ public class ProfileTab implements AituTab {
             return;
         }
 
-        if (code.length() != 6) {
-            this.statusMessage = Component.literal("Code must be exactly 6 digits!").withStyle(ChatFormatting.RED);
+        if (pin.length() != 6) {
+            this.statusMessage = Component.literal("PIN must be exactly 6 digits!").withStyle(ChatFormatting.RED);
             this.isSuccessStatus = false;
             return;
         }
 
-        String formattedTag = tag.startsWith("@") ? tag : "@" + tag;
-        String currentNickname = Minecraft.getInstance().getUser().getName();
-        String sessionToken = "aitu_tok_" + code + "_" + Long.toHexString(System.currentTimeMillis());
-        long telegramId = Math.abs(formattedTag.hashCode());
+        final String formattedTag = tag.startsWith("@") ? tag : "@" + tag;
+        final String currentNickname = Minecraft.getInstance().getUser().getName();
 
-        try {
-            SessionManager.getInstance().saveSession(sessionToken, currentNickname, telegramId, formattedTag);
-            this.statusMessage = Component.literal("Account successfully linked!").withStyle(ChatFormatting.GREEN);
-            this.isSuccessStatus = true;
-            LOGGER.info("[AITU Hub] Account linked for {} with tag {}", currentNickname, formattedTag);
+        this.isVerifying = true;
+        this.verifyButton.active = false;
+        this.verifyButton.setMessage(Component.literal("Verifying...").withStyle(ChatFormatting.YELLOW));
+        this.statusMessage = Component.literal("Connecting to backend...").withStyle(ChatFormatting.GRAY);
 
-            // Refresh tab layout to switch to the Logged In view
-            screen.refreshActiveTab();
-        } catch (IOException e) {
-            LOGGER.error("[AITU Hub] Failed to save session: {}", e.getMessage(), e);
-            this.statusMessage = Component.literal("Failed to save session: " + e.getMessage()).withStyle(ChatFormatting.RED);
-            this.isSuccessStatus = false;
-        }
+        // Asynchronous call via AituApiClient - never freeze the render thread!
+        AituApiClient.getInstance().verifyPin(formattedTag, pin, currentNickname).thenAccept(result -> {
+            Minecraft.getInstance().execute(() -> {
+                this.isVerifying = false;
+                this.verifyButton.active = true;
+                this.verifyButton.setMessage(Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD));
+
+                if (result.success() && result.sessionToken() != null) {
+                    try {
+                        SessionManager.getInstance().saveSession(
+                                result.sessionToken(),
+                                currentNickname,
+                                result.telegramId(),
+                                result.telegramTag() != null ? result.telegramTag() : formattedTag
+                        );
+                        this.statusMessage = Component.literal("✔ Account successfully linked!").withStyle(ChatFormatting.GREEN);
+                        this.isSuccessStatus = true;
+                        LOGGER.info("[AITU Hub] Account linked for {} with tag {}", currentNickname, formattedTag);
+
+                        // Refresh tab layout to switch to the Logged In view
+                        screen.refreshActiveTab();
+                    } catch (IOException e) {
+                        LOGGER.error("[AITU Hub] Failed to save session: {}", e.getMessage(), e);
+                        this.statusMessage = Component.literal("Failed to save session: " + e.getMessage()).withStyle(ChatFormatting.RED);
+                        this.isSuccessStatus = false;
+                    }
+                } else {
+                    String error = result.error() != null ? result.error() : "Verification failed";
+                    this.statusMessage = Component.literal("✖ " + error).withStyle(ChatFormatting.RED);
+                    this.isSuccessStatus = false;
+                    LOGGER.warn("[AITU Hub] Verification failed: {}", error);
+                }
+            });
+        }).exceptionally(ex -> {
+            Minecraft.getInstance().execute(() -> {
+                this.isVerifying = false;
+                this.verifyButton.active = true;
+                this.verifyButton.setMessage(Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD));
+                this.statusMessage = Component.literal("✖ Network error: " + ex.getMessage()).withStyle(ChatFormatting.RED);
+                this.isSuccessStatus = false;
+            });
+            return null;
+        });
     }
 
     private void handleLogout() {
@@ -218,63 +256,60 @@ public class ProfileTab implements AituTab {
     }
 
     private void renderUnlinked(GuiGraphics guiGraphics, Font font, int centerX) {
-        int panelWidth = Math.min(320, contentWidth - 20);
-        int panelHeight = 222;
-        int panelY = Math.max(contentY + 6, contentY + (contentHeight - panelHeight) / 2);
-        int panelX = centerX - panelWidth / 2;
-        int fieldWidth = panelWidth - 40;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int boxX = centerX - boxWidth / 2;
+        int fieldWidth = 280;
         int fieldX = centerX - fieldWidth / 2;
 
-        // 1. Darkened Semi-Transparent Background Panel with Crisp Outline
-        guiGraphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, 0xD0101420);
-        guiGraphics.renderOutline(panelX, panelY, panelWidth, panelHeight, 0xFF2B3E5C);
+        // 1. Opaque boxed dialog container (width: 320, height: 250) with crisp outline
+        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
+        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
 
-        // 2. Section Title (Crisp High-Contrast Gold with Drop Shadow)
-        guiGraphics.drawCenteredString(
-                font,
-                Component.literal("AITU Account Sign In").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-                centerX,
-                panelY + 14,
-                0xFFD700
-        );
+        // 2. Section Title (Crisp High-Contrast Gold with Drop Shadow and full 0xFF alpha)
+        Component titleComp = Component.literal("AITU Account Sign In").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+        int titleWidth = font.width(titleComp);
+        guiGraphics.drawString(font, titleComp, centerX - (titleWidth / 2), boxY + 14, 0xFFFFD700, true);
 
-        // 3. Sub-header Description (Crisp Light Text with Drop Shadow)
-        guiGraphics.drawCenteredString(
-                font,
-                Component.literal("Enter your Telegram handle and the 6-digit code").withStyle(ChatFormatting.GRAY),
-                centerX,
-                panelY + 28,
-                0xDDDDDD
-        );
+        // 3. Sub-header Description (Crisp Light Text with Drop Shadow and full 0xFF alpha)
+        Component subComp = Component.literal("Link your Telegram account to play").withStyle(ChatFormatting.GRAY);
+        int subWidth = font.width(subComp);
+        guiGraphics.drawString(font, subComp, centerX - (subWidth / 2), boxY + 28, 0xFFAAAAAA, true);
 
-        // 4. Field 1 Label: "Telegram Handle / Username" (7px gap above edit box at panelY + 100)
+        // 4. Field 1 Label: "Telegram Handle (@username)"
+        // Box sits at boxY + 98; Label sits at boxY + 82 (16px vertical distance >= 12px)
         guiGraphics.drawString(
                 font,
-                Component.literal("Telegram Handle / Username:").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
+                Component.literal("Telegram Handle (@username):").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                 fieldX,
-                panelY + 84,
-                0xFFFFFF,
+                boxY + 82,
+                0xFFFFFFFF,
                 true
         );
 
-        // 5. Field 2 Label: "6-Digit Verification Code" (7px gap above edit box at panelY + 144)
+        // 5. Field 2 Label: "6-Digit Verification PIN"
+        // Box sits at boxY + 154; Label sits at boxY + 138 (16px vertical distance >= 12px)
         guiGraphics.drawString(
                 font,
-                Component.literal("6-Digit Verification Code:").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
+                Component.literal("6-Digit Verification PIN:").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                 fieldX,
-                panelY + 128,
-                0xFFFFFF,
+                boxY + 138,
+                0xFFFFFFFF,
                 true
         );
 
-        // 6. Dynamic Feedback Status (Centered below Verify Button with Drop Shadow)
+        // 6. Dynamic Feedback Status (Non-intrusive inline label with full 0xFF alpha and drop-shadow)
         if (!this.statusMessage.getString().isEmpty()) {
-            guiGraphics.drawCenteredString(
+            int statusWidth = font.width(this.statusMessage);
+            int textColor = this.isSuccessStatus ? 0xFF55FF55 : 0xFFFF5555;
+            guiGraphics.drawString(
                     font,
                     this.statusMessage,
-                    centerX,
-                    panelY + 202,
-                    this.isSuccessStatus ? 0x55FF55 : 0xFF5555
+                    centerX - (statusWidth / 2),
+                    boxY + 218,
+                    textColor,
+                    true
             );
         }
     }
@@ -282,18 +317,18 @@ public class ProfileTab implements AituTab {
     private void renderLinked(GuiGraphics guiGraphics, Font font, int centerX, SessionData session) {
         if (session == null) return;
 
-        int cardWidth = Math.min(320, contentWidth - 20);
-        int cardHeight = 150;
-        int cardY = Math.max(contentY + 8, contentY + (contentHeight - cardHeight) / 2);
-        int cardX = centerX - cardWidth / 2;
+        int boxWidth = 320;
+        int boxHeight = 250;
+        int boxY = Math.max(contentY + 4, contentY + (contentHeight - boxHeight) / 2);
+        int boxX = centerX - boxWidth / 2;
 
-        // Darkened Semi-Transparent Background Panel with Crisp Outline
-        guiGraphics.fill(cardX, cardY, cardX + cardWidth, cardY + cardHeight, 0xD0101420);
-        guiGraphics.renderOutline(cardX, cardY, cardWidth, cardHeight, 0xFF2B3E5C);
+        // Opaque boxed dialog container (width: 320, height: 250) with crisp outline
+        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xFF121622);
+        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2D3D58);
 
         // Player Head Avatar (36x36)
-        int avatarX = cardX + 16;
-        int avatarY = cardY + 14;
+        int avatarX = boxX + 16;
+        int avatarY = boxY + 16;
         int avatarSize = 36;
         PlayerSkin skin = Minecraft.getInstance().getSkinManager().getInsecureSkin(
                 Minecraft.getInstance().getGameProfile()
@@ -301,14 +336,14 @@ public class ProfileTab implements AituTab {
         PlayerFaceRenderer.draw(guiGraphics, skin.texture(), avatarX, avatarY, avatarSize);
         guiGraphics.renderOutline(avatarX - 1, avatarY - 1, avatarSize + 2, avatarSize + 2, 0xFF00E676);
 
-        // Player Info next to Avatar (Crisp White with Drop Shadow)
+        // Player Info next to Avatar (Crisp White with Drop Shadow and full 0xFF alpha)
         int textX = avatarX + avatarSize + 12;
         guiGraphics.drawString(
                 font,
                 Component.literal(session.getCachedNickname()).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
                 textX,
-                cardY + 14,
-                0xFFFFFF,
+                boxY + 16,
+                0xFFFFFFFF,
                 true
         );
 
@@ -316,88 +351,121 @@ public class ProfileTab implements AituTab {
                 font,
                 Component.literal(session.getTelegramTag()).withStyle(ChatFormatting.AQUA),
                 textX,
-                cardY + 26,
-                0x55FFFF,
+                boxY + 28,
+                0xFF55FFFF,
                 true
         );
 
         guiGraphics.drawString(
                 font,
-                Component.literal("Telegram ID: " + session.getTelegramId()).withStyle(ChatFormatting.GRAY),
+                Component.literal("ID: " + session.getTelegramId()).withStyle(ChatFormatting.GRAY),
                 textX,
-                cardY + 38,
-                0xAAAAAA,
+                boxY + 40,
+                0xFFAAAAAA,
                 true
         );
 
-        // Status Badge (Top-Right of Card)
+        // Status Badge (Top-Right of Card) - Opaque badge with Green text and border
         int badgeWidth = 66;
-        int badgeHeight = 16;
-        int badgeX = cardX + cardWidth - badgeWidth - 14;
-        int badgeY = cardY + 14;
-        guiGraphics.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + badgeHeight, 0x3000E676);
+        int badgeHeight = 18;
+        int badgeX = boxX + boxWidth - badgeWidth - 14;
+        int badgeY = boxY + 16;
+        guiGraphics.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + badgeHeight, 0xFF0E2A18);
         guiGraphics.renderOutline(badgeX, badgeY, badgeWidth, badgeHeight, 0xFF00AA44);
-        guiGraphics.drawCenteredString(
+        Component badgeText = Component.literal("● Linked").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+        int badgeTextWidth = font.width(badgeText);
+        guiGraphics.drawString(
                 font,
-                Component.literal("● Linked").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-                badgeX + badgeWidth / 2,
-                badgeY + 4,
-                0x00FF66
+                badgeText,
+                badgeX + (badgeWidth - badgeTextWidth) / 2,
+                badgeY + 5,
+                0xFF00FF66,
+                true
         );
 
         // Divider
-        guiGraphics.fill(cardX + 14, cardY + 58, cardX + cardWidth - 14, cardY + 59, 0xFF202A3C);
+        guiGraphics.fill(boxX + 14, boxY + 62, boxX + boxWidth - 14, boxY + 63, 0xFF243248);
 
-        // Security / Sync Details (Crisp High-Contrast Text)
+        // Security / Status Details (Crisp High-Contrast Text with full 0xFF alpha and drop-shadow)
         guiGraphics.drawString(
                 font,
                 Component.literal("Authentication:").withStyle(ChatFormatting.WHITE),
-                cardX + 16,
-                cardY + 68,
-                0xFFFFFF,
+                boxX + 16,
+                boxY + 74,
+                0xFFFFFFFF,
                 true
         );
         guiGraphics.drawString(
                 font,
                 Component.literal("Active Session Token").withStyle(ChatFormatting.GREEN),
-                cardX + 110,
-                cardY + 68,
-                0x55FF55,
+                boxX + 116,
+                boxY + 74,
+                0xFF55FF55,
                 true
         );
 
         guiGraphics.drawString(
                 font,
-                Component.literal("Storage:").withStyle(ChatFormatting.WHITE),
-                cardX + 16,
-                cardY + 82,
-                0xFFFFFF,
+                Component.literal("Pinned Server:").withStyle(ChatFormatting.WHITE),
+                boxX + 16,
+                boxY + 94,
+                0xFFFFFFFF,
                 true
         );
         guiGraphics.drawString(
                 font,
-                Component.literal(".minecraft/config/aitu_session.json").withStyle(ChatFormatting.YELLOW),
-                cardX + 110,
-                cardY + 82,
-                0xFFFF55,
+                Component.literal("AITU Official SMP (Index 0)").withStyle(ChatFormatting.AQUA),
+                boxX + 116,
+                boxY + 94,
+                0xFF55FFFF,
+                true
+        );
+
+        guiGraphics.drawString(
+                font,
+                Component.literal("Config File:").withStyle(ChatFormatting.WHITE),
+                boxX + 16,
+                boxY + 114,
+                0xFFFFFFFF,
+                true
+        );
+        guiGraphics.drawString(
+                font,
+                Component.literal("config/aitu_session.json").withStyle(ChatFormatting.YELLOW),
+                boxX + 116,
+                boxY + 114,
+                0xFFFFFF55,
                 true
         );
 
         guiGraphics.drawString(
                 font,
                 Component.literal("Handshake:").withStyle(ChatFormatting.WHITE),
-                cardX + 16,
-                cardY + 96,
-                0xFFFFFF,
+                boxX + 16,
+                boxY + 134,
+                0xFFFFFFFF,
                 true
         );
         guiGraphics.drawString(
                 font,
-                Component.literal("Auto-responds on challenge").withStyle(ChatFormatting.AQUA),
-                cardX + 110,
-                cardY + 96,
-                0x55FFFF,
+                Component.literal("Auto-sync on server join").withStyle(ChatFormatting.GREEN),
+                boxX + 116,
+                boxY + 134,
+                0xFF55FF55,
                 true
         );
+
+        // Feedback / Action notice
+        if (!this.statusMessage.getString().isEmpty()) {
+            int statusWidth = font.width(this.statusMessage);
+            guiGraphics.drawString(
+                    font,
+                    this.statusMessage,
+                    centerX - (statusWidth / 2),
+                    boxY + 180,
+                    0xFFFFFF55,
+                    true
+            );
+        }
     }
 }

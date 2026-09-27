@@ -111,13 +111,13 @@ public class AituProfileWidget extends AbstractButton {
             // Cached @tag text
             int textX = avatarX + avatarSize + 5;
             int textY = getY() + 7;
-            int textColor = hovered ? 0xFFFFFF : 0xBBDDFF;
-            guiGraphics.drawString(font, this.displayTag, textX, textY, textColor);
+            int textColor = hovered ? 0xFFFFFFFF : 0xFFBBDDFF;
+            guiGraphics.drawString(font, this.displayTag, textX, textY, textColor, true);
         } else {
             // 2B. Unlinked State: Render guest avatar box
             guiGraphics.fill(avatarX, avatarY, avatarX + avatarSize, avatarY + avatarSize, 0xFF262A34);
             guiGraphics.renderOutline(avatarX, avatarY, avatarSize, avatarSize, 0xFF404656);
-            guiGraphics.drawCenteredString(font, "👤", avatarX + avatarSize / 2, avatarY + 4, 0x8892A4);
+            guiGraphics.drawString(font, "👤", avatarX + 3, avatarY + 4, 0xFF8892A4, true);
 
             // Warning indicator dot (amber/orange)
             int dotX = avatarX + 11;
@@ -132,7 +132,7 @@ public class AituProfileWidget extends AbstractButton {
                     hovered ? ChatFormatting.YELLOW : ChatFormatting.GOLD,
                     ChatFormatting.BOLD
             );
-            guiGraphics.drawString(font, signInText, textX, textY, 0xFFFFFF);
+            guiGraphics.drawString(font, signInText, textX, textY, 0xFFFFFFFF, true);
         }
     }
 

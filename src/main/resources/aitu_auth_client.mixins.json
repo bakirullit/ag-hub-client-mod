@@ -3,7 +3,8 @@
   "package": "kz.aitu.auth.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "TitleScreenMixin"
+    "TitleScreenMixin",
+    "ServerListMixin"
   ],
   "injectors": {
     "defaultRequire": 1

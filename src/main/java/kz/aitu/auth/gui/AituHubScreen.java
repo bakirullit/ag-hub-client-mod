@@ -17,11 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Modular container screen featuring a top Tab Navigation bar:
- * - Tab 1: Profile & Authentication (active by default)
- * - Tab 2: Friends (Foundation stub for upcoming release)
- * - Tab 3: Settings (Diagnostics & quick actions)
- * Uses dynamic layout calculations to ensure zero widget overlap on all GUI scales.
+ * Full-featured standalone Ecosystem Hub for AITU Gaming:
+ * - Header Bar with Vanilla Tab Buttons ("👤 Profile", "👥 Friends (Beta)", "⚙ Settings")
+ * - Opaque solid backdrop (0xE0101014) to prevent GUI blur shader degradation
+ * - Dynamic tab container supporting sub-panel widgets and scrollable lists
  */
 public class AituHubScreen extends Screen {
 
@@ -36,7 +35,7 @@ public class AituHubScreen extends Screen {
         super(Component.literal("AITU Gaming Hub"));
         this.parentScreen = parentScreen;
 
-        // Register modular tabs
+        // Register tabs with exact labels
         this.tabs.add(new ProfileTab());
         this.tabs.add(new FriendsTab());
         this.tabs.add(new SettingsTab());
@@ -52,11 +51,11 @@ public class AituHubScreen extends Screen {
         int centerX = this.width / 2;
 
         // 1. Top Tab Navigation Bar (placed at Y=28, clearly below the main title at Y=10)
-        int tabButtonWidth = Math.min(105, (this.width - 40) / this.tabs.size());
+        int tabButtonWidth = Math.min(115, (this.width - 40) / this.tabs.size());
         int tabSpacing = 6;
         int totalBarWidth = (this.tabs.size() * tabButtonWidth) + ((this.tabs.size() - 1) * tabSpacing);
         int barStartX = centerX - (totalBarWidth / 2);
-        int tabY = 28;
+        int tabY = 26;
 
         for (int i = 0; i < this.tabs.size(); i++) {
             final int tabIndex = i;
@@ -73,7 +72,7 @@ public class AituHubScreen extends Screen {
         }
 
         // 2. Bottom Close / Back Button
-        int bottomY = this.height - 28;
+        int bottomY = this.height - 26;
         this.addRenderableWidget(
                 Button.builder(CommonComponents.GUI_BACK, btn -> onClose())
                         .bounds(centerX - 80, bottomY, 160, 20)
@@ -120,11 +119,11 @@ public class AituHubScreen extends Screen {
             btn.setMessage(formattedLabel);
         }
 
-        // Content panel bounds (below the header divider at Y=54)
+        // Content panel bounds (below the header divider at Y=52)
         int contentX = 20;
-        int contentY = 58;
+        int contentY = 56;
         int contentWidth = this.width - 40;
-        int contentHeight = this.height - contentY - 36;
+        int contentHeight = this.height - contentY - 32;
 
         AituTab activeTab = this.tabs.get(index);
         activeTab.init(this, contentX, contentY, contentWidth, contentHeight);
@@ -140,23 +139,24 @@ public class AituHubScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        // 1. Render opaque solid backdrop covering the entire screen to prevent GUI blur shader degradation
+        guiGraphics.fill(0, 0, this.width, this.height, 0xE0101014);
 
         Font font = this.font;
         int centerX = this.width / 2;
 
-        // Top Header Backdrop Banner (darkened panel with high contrast)
-        guiGraphics.fill(0, 0, this.width, 54, 0xD00A0E18);
-        guiGraphics.fill(0, 54, this.width, 55, 0xFF2A3648);
+        // Top Header Backdrop Banner (clean opaque dark modal frame)
+        guiGraphics.fill(0, 0, this.width, 52, 0xFF0D111A);
+        guiGraphics.fill(0, 52, this.width, 53, 0xFF2A3648);
 
-        // Top App Header Title (crisp high-contrast gold with dropshadow, clearly above tab bar)
-        guiGraphics.drawCenteredString(
-                font,
-                Component.literal("AITU GAMING HUB").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-                centerX,
-                10,
-                0xFFD700
-        );
+        // Bottom Footer Banner
+        guiGraphics.fill(0, this.height - 32, this.width, this.height, 0xFF0D111A);
+        guiGraphics.fill(0, this.height - 32, this.width, this.height - 31, 0xFF2A3648);
+
+        // Top App Header Title (crisp high-contrast gold with drop-shadow and full 0xFF alpha)
+        Component titleComponent = Component.literal("AITU GAMING HUB").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+        int titleWidth = font.width(titleComponent);
+        guiGraphics.drawString(font, titleComponent, centerX - (titleWidth / 2), 9, 0xFFFFD700, true);
 
         // Render Active Tab Content
         if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabs.size()) {
