@@ -1,0 +1,17 @@
+# Gradle build artifacts
+build/
+.gradle/
+
+# IDE configurations
+.idea/
+*.iml
+.vscode/
+bin/
+
+# Run directory
+run/
+run-*/
+
+# OS files
+.DS_Store
+Thumbs.db

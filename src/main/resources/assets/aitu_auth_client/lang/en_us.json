@@ -1,0 +1,18 @@
+{
+  "aitu_auth.title": "AITU Account Authentication",
+  "aitu_auth.link_button": "Link AITU Account",
+  "aitu_auth.warning_badge": "AITU Account Not Linked",
+  "aitu_auth.instruction.1": "Link your Minecraft account with your AITU Telegram account.",
+  "aitu_auth.instruction.2": "1. Open the Telegram bot and obtain your linking token.",
+  "aitu_auth.instruction.3": "2. Paste your token below and click Link Account.",
+  "aitu_auth.token_hint": "Paste token or session JSON here...",
+  "aitu_auth.copy_bot_link": "Copy Telegram Bot Link",
+  "aitu_auth.copied_toast": "Bot link copied to clipboard!",
+  "aitu_auth.open_bot": "Open Bot",
+  "aitu_auth.link_submit": "Link Account",
+  "aitu_auth.status_linked": "AITU Linked",
+  "aitu_auth.unlink_button": "Unlink Account",
+  "aitu_auth.error.empty": "Token cannot be empty!",
+  "aitu_auth.error.invalid_format": "Invalid token format! Please enter a valid token.",
+  "aitu_auth.success": "Account successfully linked!"
+}
