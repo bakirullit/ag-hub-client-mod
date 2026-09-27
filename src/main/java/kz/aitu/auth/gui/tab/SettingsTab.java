@@ -77,53 +77,57 @@ public class SettingsTab implements AituTab {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         int centerX = contentX + contentWidth / 2;
-        int boxWidth = Math.min(320, contentWidth - 40);
+        int boxWidth = Math.min(320, contentWidth - 20);
         int boxHeight = 150;
         int boxY = Math.max(contentY + 12, contentY + (contentHeight - boxHeight) / 2);
         int boxX = centerX - boxWidth / 2;
 
-        // Container Box
-        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xB0121622);
-        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2A3A52);
+        // Darkened Container Box with Crisp Outline
+        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xD0101420);
+        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2B3E5C);
 
-        // Header Title
+        // Header Title (Crisp Gold)
         guiGraphics.drawCenteredString(
                 font,
                 Component.literal("Client Configuration & Diagnostics").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                 centerX,
                 boxY + 14,
-                0xFFFFFF
+                0xFFD700
         );
 
-        // Info Rows
+        // Info Rows (Crisp White & High Contrast Colors with Dropshadow)
         guiGraphics.drawString(
                 font,
-                Component.literal("Mod Version:").withStyle(ChatFormatting.GRAY),
+                Component.literal("Mod Version:").withStyle(ChatFormatting.WHITE),
                 boxX + 20,
                 boxY + 34,
-                0xAAAAAA
+                0xFFFFFF,
+                true
         );
         guiGraphics.drawString(
                 font,
                 Component.literal("1.1.0 (NeoForge 1.21.1)").withStyle(ChatFormatting.AQUA),
                 boxX + 110,
                 boxY + 34,
-                0xCCE0FF
+                0x55FFFF,
+                true
         );
 
         guiGraphics.drawString(
                 font,
-                Component.literal("Handshake:").withStyle(ChatFormatting.GRAY),
+                Component.literal("Handshake:").withStyle(ChatFormatting.WHITE),
                 boxX + 20,
                 boxY + 48,
-                0xAAAAAA
+                0xFFFFFF,
+                true
         );
         guiGraphics.drawString(
                 font,
                 Component.literal("Active (aitu_auth channel)").withStyle(ChatFormatting.GREEN),
                 boxX + 110,
                 boxY + 48,
-                0x55FF55
+                0x55FF55,
+                true
         );
 
         // Feedback message

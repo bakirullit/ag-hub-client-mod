@@ -51,12 +51,12 @@ public class AituHubScreen extends Screen {
 
         int centerX = this.width / 2;
 
-        // 1. Top Tab Navigation Bar
-        int tabButtonWidth = Math.min(100, (this.width - 40) / this.tabs.size());
+        // 1. Top Tab Navigation Bar (placed at Y=28, clearly below the main title at Y=10)
+        int tabButtonWidth = Math.min(105, (this.width - 40) / this.tabs.size());
         int tabSpacing = 6;
         int totalBarWidth = (this.tabs.size() * tabButtonWidth) + ((this.tabs.size() - 1) * tabSpacing);
         int barStartX = centerX - (totalBarWidth / 2);
-        int tabY = 24;
+        int tabY = 28;
 
         for (int i = 0; i < this.tabs.size(); i++) {
             final int tabIndex = i;
@@ -120,9 +120,9 @@ public class AituHubScreen extends Screen {
             btn.setMessage(formattedLabel);
         }
 
-        // Content panel bounds
+        // Content panel bounds (below the header divider at Y=54)
         int contentX = 20;
-        int contentY = 54;
+        int contentY = 58;
         int contentWidth = this.width - 40;
         int contentHeight = this.height - contentY - 36;
 
@@ -145,17 +145,18 @@ public class AituHubScreen extends Screen {
         Font font = this.font;
         int centerX = this.width / 2;
 
-        // Top App Header
+        // Top Header Backdrop Banner (darkened panel with high contrast)
+        guiGraphics.fill(0, 0, this.width, 54, 0xD00A0E18);
+        guiGraphics.fill(0, 54, this.width, 55, 0xFF2A3648);
+
+        // Top App Header Title (crisp high-contrast gold with dropshadow, clearly above tab bar)
         guiGraphics.drawCenteredString(
                 font,
                 Component.literal("AITU GAMING HUB").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                 centerX,
-                8,
+                10,
                 0xFFD700
         );
-
-        // Horizontal Separator beneath Tab Bar
-        guiGraphics.fill(20, 48, this.width - 20, 49, 0xFF2A3648);
 
         // Render Active Tab Content
         if (this.currentTabIndex >= 0 && this.currentTabIndex < this.tabs.size()) {

@@ -49,7 +49,7 @@ public class FriendsTab implements AituTab {
         this.telegramCommunityButton = Button.builder(
                 Component.literal("💬 Join Gaming Hub on Telegram"),
                 btn -> Util.getPlatform().openUri(AituAuthClient.TELEGRAM_BOT_URL)
-        ).bounds(centerX - 110, boxY + 96, 220, 20)
+        ).bounds(centerX - 110, boxY + 98, 220, 20)
         .build();
         screen.registerTabWidget(this.telegramCommunityButton);
     }
@@ -58,14 +58,14 @@ public class FriendsTab implements AituTab {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         Font font = Minecraft.getInstance().font;
         int centerX = contentX + contentWidth / 2;
-        int boxWidth = Math.min(320, contentWidth - 40);
+        int boxWidth = Math.min(320, contentWidth - 20);
         int boxHeight = 140;
         int boxY = Math.max(contentY + 12, contentY + (contentHeight - boxHeight) / 2);
         int boxX = centerX - boxWidth / 2;
 
-        // Container Box
-        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xB0121622);
-        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2A3A52);
+        // Darkened Container Box with Crisp Outline
+        guiGraphics.fill(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 0xD0101420);
+        guiGraphics.renderOutline(boxX, boxY, boxWidth, boxHeight, 0xFF2B3E5C);
 
         // Icon
         guiGraphics.drawCenteredString(
@@ -76,29 +76,29 @@ public class FriendsTab implements AituTab {
                 0x00E676
         );
 
-        // Headline
+        // Headline (Crisp High-Contrast Gold)
         guiGraphics.drawCenteredString(
                 font,
                 Component.literal("Friends system coming soon!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
                 centerX,
                 boxY + 36,
-                0xFFFFFF
+                0xFFD700
         );
 
-        // Explanatory Text
+        // Explanatory Text (Crisp White)
         guiGraphics.drawCenteredString(
                 font,
-                Component.literal("Connect with fellow AITU university students,").withStyle(ChatFormatting.GRAY),
+                Component.literal("Connect with fellow AITU university students,").withStyle(ChatFormatting.WHITE),
                 centerX,
-                boxY + 54,
-                0xAAAAAA
+                boxY + 56,
+                0xFFFFFF
         );
         guiGraphics.drawCenteredString(
                 font,
-                Component.literal("view friends online, and jump into servers together.").withStyle(ChatFormatting.GRAY),
+                Component.literal("view friends online, and jump into servers together.").withStyle(ChatFormatting.WHITE),
                 centerX,
-                boxY + 66,
-                0xAAAAAA
+                boxY + 70,
+                0xFFFFFF
         );
     }
 }
