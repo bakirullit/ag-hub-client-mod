@@ -1,12 +1,10 @@
 package kz.aitu.auth.gui.tab;
 
-import kz.aitu.auth.AituAuthClient;
 import kz.aitu.auth.api.AituApiClient;
 import kz.aitu.auth.config.SessionData;
 import kz.aitu.auth.config.SessionManager;
 import kz.aitu.auth.gui.AituHubScreen;
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -23,14 +21,17 @@ import java.io.IOException;
 
 /**
  * Profile & Authentication Tab for AituHubScreen.
- * - When Unlinked: Telegram handle field (@username), 6-digit PIN field, "Verify & Link" button, and "Get Code via Bot" button.
- * - When Linked: User card displaying Player Skin / Head, @TelegramHandle, Linked Status Badge (Green), and "Log Out / Unlink" button.
- * Uses an opaque boxed dialog container (width: 320, height: 250) to prevent blur shader degradation,
- * with >=12px label vertical spacing and full 0xFF alpha drop-shadow strings.
+ * Implements a Two-Step Authentication Flow:
+ * - Step 1: Telegram Handle input (@username) and "[ Request Code ]" button.
+ * - Step 2: Dynamically replaces Step 1 with 6-digit PIN input, "[ Verify & Log In ]", and "← Back / Change Tag".
+ * - When Linked: Shows User Card with Player Skin / Head, @TelegramHandle, Linked Status Badge (Green), and "Log Out / Unlink".
  */
 public class ProfileTab implements AituTab {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ProfileTab.class);
+
+    private static final int STEP_REQUEST_CODE = 1;
+    private static final int STEP_VERIFY_CODE = 2;
 
     private AituHubScreen screen;
     private int contentX;
@@ -38,11 +39,20 @@ public class ProfileTab implements AituTab {
     private int contentWidth;
     private int contentHeight;
 
-    // Login Form Widgets
+    // State
+    private int currentStep = STEP_REQUEST_CODE;
+    private String requestedTag = "";
+    private boolean isRequestingCode = false;
+    private boolean isVerifyingCode = false;
+
+    // Step 1 Widgets
     private EditBox tagEditBox;
-    private EditBox codeEditBox;
-    private Button getCodeButton;
+    private Button requestCodeButton;
+
+    // Step 2 Widgets
+    private EditBox pinEditBox;
     private Button verifyButton;
+    private Button backButton;
 
     // Logged-in Widgets
     private Button logoutButton;
@@ -50,7 +60,6 @@ public class ProfileTab implements AituTab {
     // Dynamic Feedback
     private Component statusMessage = Component.empty();
     private boolean isSuccessStatus = false;
-    private boolean isVerifying = false;
 
     @Override
     public Component getTitle() {
@@ -91,57 +100,70 @@ public class ProfileTab implements AituTab {
 
         Font font = Minecraft.getInstance().font;
 
-        // 1. "Get Code via Bot" button
-        this.getCodeButton = Button.builder(
-                Component.literal("💬 Get Code via Bot"),
-                btn -> {
-                    Minecraft mc = Minecraft.getInstance();
-                    mc.keyboardHandler.setClipboard(AituAuthClient.TELEGRAM_BOT_URL);
-                    Util.getPlatform().openUri(AituAuthClient.TELEGRAM_BOT_URL);
-                    this.statusMessage = Component.literal("✔ Opened Bot & copied link to clipboard!").withStyle(ChatFormatting.GREEN);
-                    this.isSuccessStatus = true;
-                }
-        ).bounds(fieldX, boxY + 44, fieldWidth, 20)
-        .tooltip(Tooltip.create(Component.literal("Opens @aitu_gaming_bot in your browser and copies link.")))
-        .build();
-        screen.registerTabWidget(this.getCodeButton);
+        if (this.currentStep == STEP_REQUEST_CODE) {
+            // --- Step 1: Request Code ---
+            // Only one input field visible: Telegram Handle (@username)
+            // Label sits at boxY + 68; EditBox sits at boxY + 84 (16px vertical distance >= 12px)
+            this.tagEditBox = new EditBox(
+                    font,
+                    fieldX,
+                    boxY + 84,
+                    fieldWidth,
+                    20,
+                    Component.literal("Telegram Handle")
+            );
+            this.tagEditBox.setMaxLength(64);
+            this.tagEditBox.setHint(Component.literal("@username").withStyle(ChatFormatting.DARK_GRAY));
+            if (!this.requestedTag.isEmpty()) {
+                this.tagEditBox.setValue(this.requestedTag);
+            }
+            screen.registerTabWidget(this.tagEditBox);
 
-        // 2. Field 1: Telegram Handle (@username)
-        // EditBox sits at Y = boxY + 98; Label sits at Y = boxY + 82 (16px vertical distance >= 12px)
-        this.tagEditBox = new EditBox(
-                font,
-                fieldX,
-                boxY + 98,
-                fieldWidth,
-                20,
-                Component.literal("Telegram Handle")
-        );
-        this.tagEditBox.setMaxLength(64);
-        this.tagEditBox.setHint(Component.literal("@username").withStyle(ChatFormatting.DARK_GRAY));
-        screen.registerTabWidget(this.tagEditBox);
+            // Directly below it: single action button "[ Request Code ]"
+            this.requestCodeButton = Button.builder(
+                    Component.literal("[ Request Code ]").withStyle(ChatFormatting.BOLD),
+                    btn -> handleRequestCode()
+            ).bounds(fieldX, boxY + 114, fieldWidth, 22)
+            .build();
+            screen.registerTabWidget(this.requestCodeButton);
 
-        // 3. Field 2: 6-digit PIN
-        // EditBox sits at Y = boxY + 154; Label sits at Y = boxY + 138 (16px vertical distance >= 12px)
-        this.codeEditBox = new EditBox(
-                font,
-                fieldX,
-                boxY + 154,
-                fieldWidth,
-                20,
-                Component.literal("6-digit PIN")
-        );
-        this.codeEditBox.setMaxLength(6);
-        this.codeEditBox.setFilter(text -> text.matches("\\d*"));
-        this.codeEditBox.setHint(Component.literal("Enter 6-digit PIN").withStyle(ChatFormatting.DARK_GRAY));
-        screen.registerTabWidget(this.codeEditBox);
+        } else {
+            // --- Step 2: Verify Code ---
+            // Dynamic replacement: 6-digit PIN input, "[ Verify & Log In ]", "← Back / Change Tag"
+            // Label sits at boxY + 70; EditBox sits at boxY + 88 (18px vertical distance >= 12px)
+            this.pinEditBox = new EditBox(
+                    font,
+                    fieldX,
+                    boxY + 88,
+                    fieldWidth,
+                    20,
+                    Component.literal("6-Digit Code")
+            );
+            this.pinEditBox.setMaxLength(6);
+            this.pinEditBox.setFilter(text -> text.matches("\\d*"));
+            this.pinEditBox.setHint(Component.literal("Enter 6-digit code").withStyle(ChatFormatting.DARK_GRAY));
+            screen.registerTabWidget(this.pinEditBox);
 
-        // 4. "Verify & Link" button
-        this.verifyButton = Button.builder(
-                Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD),
-                btn -> handleVerify()
-        ).bounds(fieldX, boxY + 186, fieldWidth, 22)
-        .build();
-        screen.registerTabWidget(this.verifyButton);
+            // Button: "[ Verify & Log In ]"
+            this.verifyButton = Button.builder(
+                    Component.literal("[ Verify & Log In ]").withStyle(ChatFormatting.BOLD),
+                    btn -> handleVerifyCode()
+            ).bounds(fieldX, boxY + 118, fieldWidth, 22)
+            .build();
+            screen.registerTabWidget(this.verifyButton);
+
+            // Small secondary button or link: "← Back / Change Tag"
+            this.backButton = Button.builder(
+                    Component.literal("← Back / Change Tag").withStyle(ChatFormatting.GRAY),
+                    btn -> {
+                        this.currentStep = STEP_REQUEST_CODE;
+                        this.statusMessage = Component.empty();
+                        this.screen.refreshActiveTab();
+                    }
+            ).bounds(centerX - 75, boxY + 148, 150, 18)
+            .build();
+            screen.registerTabWidget(this.backButton);
+        }
     }
 
     private void initLinkedView(int centerX) {
@@ -159,38 +181,76 @@ public class ProfileTab implements AituTab {
         screen.registerTabWidget(this.logoutButton);
     }
 
-    private void handleVerify() {
-        if (this.isVerifying) return;
+    private void handleRequestCode() {
+        if (this.isRequestingCode) return;
 
-        String tag = this.tagEditBox.getValue().trim();
-        String pin = this.codeEditBox.getValue().trim();
-
-        if (tag.isEmpty()) {
+        String rawTag = this.tagEditBox.getValue().trim();
+        if (rawTag.isEmpty()) {
             this.statusMessage = Component.literal("Please enter your Telegram handle (e.g. @username)").withStyle(ChatFormatting.RED);
             this.isSuccessStatus = false;
             return;
         }
 
+        final String formattedTag = rawTag.startsWith("@") ? rawTag : "@" + rawTag;
+        final String currentNickname = Minecraft.getInstance().getUser().getName();
+
+        this.isRequestingCode = true;
+        this.requestCodeButton.active = false;
+        this.requestCodeButton.setMessage(Component.literal("Sending code to your Telegram...").withStyle(ChatFormatting.YELLOW));
+        this.statusMessage = Component.literal("Sending code to your Telegram...").withStyle(ChatFormatting.GRAY);
+
+        AituApiClient.getInstance().requestCode(formattedTag, currentNickname).thenAccept(result -> {
+            Minecraft.getInstance().execute(() -> {
+                this.isRequestingCode = false;
+                if (result.success()) {
+                    this.requestedTag = formattedTag;
+                    this.currentStep = STEP_VERIFY_CODE;
+                    this.statusMessage = Component.literal("✔ Code sent! Check your Telegram (" + formattedTag + ")").withStyle(ChatFormatting.GREEN);
+                    this.isSuccessStatus = true;
+                    LOGGER.info("[AITU Auth] Code requested successfully for {}", formattedTag);
+                    this.screen.refreshActiveTab();
+                } else {
+                    this.requestCodeButton.active = true;
+                    this.requestCodeButton.setMessage(Component.literal("[ Request Code ]").withStyle(ChatFormatting.BOLD));
+                    this.statusMessage = Component.literal("✖ " + result.error()).withStyle(ChatFormatting.RED);
+                    this.isSuccessStatus = false;
+                    LOGGER.warn("[AITU Auth] Request code failed: {}", result.error());
+                }
+            });
+        }).exceptionally(ex -> {
+            Minecraft.getInstance().execute(() -> {
+                this.isRequestingCode = false;
+                this.requestCodeButton.active = true;
+                this.requestCodeButton.setMessage(Component.literal("[ Request Code ]").withStyle(ChatFormatting.BOLD));
+                this.statusMessage = Component.literal("✖ Network error: " + ex.getMessage()).withStyle(ChatFormatting.RED);
+                this.isSuccessStatus = false;
+            });
+            return null;
+        });
+    }
+
+    private void handleVerifyCode() {
+        if (this.isVerifyingCode) return;
+
+        String pin = this.pinEditBox.getValue().trim();
         if (pin.length() != 6) {
-            this.statusMessage = Component.literal("PIN must be exactly 6 digits!").withStyle(ChatFormatting.RED);
+            this.statusMessage = Component.literal("Code must be exactly 6 digits!").withStyle(ChatFormatting.RED);
             this.isSuccessStatus = false;
             return;
         }
 
-        final String formattedTag = tag.startsWith("@") ? tag : "@" + tag;
         final String currentNickname = Minecraft.getInstance().getUser().getName();
 
-        this.isVerifying = true;
+        this.isVerifyingCode = true;
         this.verifyButton.active = false;
         this.verifyButton.setMessage(Component.literal("Verifying...").withStyle(ChatFormatting.YELLOW));
-        this.statusMessage = Component.literal("Connecting to backend...").withStyle(ChatFormatting.GRAY);
+        this.statusMessage = Component.literal("Connecting to auth server...").withStyle(ChatFormatting.GRAY);
 
-        // Asynchronous call via AituApiClient - never freeze the render thread!
-        AituApiClient.getInstance().verifyPin(formattedTag, pin, currentNickname).thenAccept(result -> {
+        AituApiClient.getInstance().verifyPin(this.requestedTag, pin, currentNickname).thenAccept(result -> {
             Minecraft.getInstance().execute(() -> {
-                this.isVerifying = false;
+                this.isVerifyingCode = false;
                 this.verifyButton.active = true;
-                this.verifyButton.setMessage(Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD));
+                this.verifyButton.setMessage(Component.literal("[ Verify & Log In ]").withStyle(ChatFormatting.BOLD));
 
                 if (result.success() && result.sessionToken() != null) {
                     try {
@@ -198,13 +258,13 @@ public class ProfileTab implements AituTab {
                                 result.sessionToken(),
                                 currentNickname,
                                 result.telegramId(),
-                                result.telegramTag() != null ? result.telegramTag() : formattedTag
+                                result.telegramTag() != null ? result.telegramTag() : this.requestedTag
                         );
                         this.statusMessage = Component.literal("✔ Account successfully linked!").withStyle(ChatFormatting.GREEN);
                         this.isSuccessStatus = true;
-                        LOGGER.info("[AITU Hub] Account linked for {} with tag {}", currentNickname, formattedTag);
-
-                        // Refresh tab layout to switch to the Logged In view
+                        LOGGER.info("[AITU Hub] Account linked for {} with tag {}", currentNickname, this.requestedTag);
+                        this.currentStep = STEP_REQUEST_CODE;
+                        this.requestedTag = "";
                         screen.refreshActiveTab();
                     } catch (IOException e) {
                         LOGGER.error("[AITU Hub] Failed to save session: {}", e.getMessage(), e);
@@ -220,9 +280,9 @@ public class ProfileTab implements AituTab {
             });
         }).exceptionally(ex -> {
             Minecraft.getInstance().execute(() -> {
-                this.isVerifying = false;
+                this.isVerifyingCode = false;
                 this.verifyButton.active = true;
-                this.verifyButton.setMessage(Component.literal("✔ Verify & Link").withStyle(ChatFormatting.BOLD));
+                this.verifyButton.setMessage(Component.literal("[ Verify & Log In ]").withStyle(ChatFormatting.BOLD));
                 this.statusMessage = Component.literal("✖ Network error: " + ex.getMessage()).withStyle(ChatFormatting.RED);
                 this.isSuccessStatus = false;
             });
@@ -232,11 +292,11 @@ public class ProfileTab implements AituTab {
 
     private void handleLogout() {
         SessionManager.getInstance().clearSession();
+        this.currentStep = STEP_REQUEST_CODE;
+        this.requestedTag = "";
         this.statusMessage = Component.literal("Successfully logged out.").withStyle(ChatFormatting.YELLOW);
         this.isSuccessStatus = true;
         LOGGER.info("[AITU Hub] Session cleared via Log Out button.");
-
-        // Refresh tab layout to switch back to login form
         screen.refreshActiveTab();
     }
 
@@ -275,39 +335,45 @@ public class ProfileTab implements AituTab {
         int fieldWidth = 280;
         int fieldX = centerX - fieldWidth / 2;
 
-        // 1. Section Title (Crisp High-Contrast Gold with Drop Shadow and full 0xFF alpha)
+        // Section Title (Crisp High-Contrast Gold with Drop Shadow and full 0xFF alpha)
         Component titleComp = Component.literal("AITU Account Sign In").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
         int titleWidth = font.width(titleComp);
-        guiGraphics.drawString(font, titleComp, centerX - (titleWidth / 2), boxY + 14, 0xFFFFD700, true);
+        guiGraphics.drawString(font, titleComp, centerX - (titleWidth / 2), boxY + 16, 0xFFFFD700, true);
 
-        // 3. Sub-header Description (Crisp Light Text with Drop Shadow and full 0xFF alpha)
-        Component subComp = Component.literal("Link your Telegram account to play").withStyle(ChatFormatting.GRAY);
-        int subWidth = font.width(subComp);
-        guiGraphics.drawString(font, subComp, centerX - (subWidth / 2), boxY + 28, 0xFFAAAAAA, true);
+        if (this.currentStep == STEP_REQUEST_CODE) {
+            // Step 1 Subtitle
+            Component subComp = Component.literal("Enter your Telegram handle to receive a code").withStyle(ChatFormatting.GRAY);
+            int subWidth = font.width(subComp);
+            guiGraphics.drawString(font, subComp, centerX - (subWidth / 2), boxY + 32, 0xFFAAAAAA, true);
 
-        // 4. Field 1 Label: "Telegram Handle (@username)"
-        // Box sits at boxY + 98; Label sits at boxY + 82 (16px vertical distance >= 12px)
-        guiGraphics.drawString(
-                font,
-                Component.literal("Telegram Handle (@username):").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
-                fieldX,
-                boxY + 82,
-                0xFFFFFFFF,
-                true
-        );
+            // Step 1 Label: "Telegram Handle (@username):" (16px vertical distance above edit box at boxY + 84)
+            guiGraphics.drawString(
+                    font,
+                    Component.literal("Telegram Handle (@username):").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
+                    fieldX,
+                    boxY + 68,
+                    0xFFFFFFFF,
+                    true
+            );
+        } else {
+            // Step 2 Subtitle
+            Component subComp = Component.literal("Step 2 of 2: Verification").withStyle(ChatFormatting.AQUA);
+            int subWidth = font.width(subComp);
+            guiGraphics.drawString(font, subComp, centerX - (subWidth / 2), boxY + 32, 0xFF55FFFF, true);
 
-        // 5. Field 2 Label: "6-Digit Verification PIN"
-        // Box sits at boxY + 154; Label sits at boxY + 138 (16px vertical distance >= 12px)
-        guiGraphics.drawString(
-                font,
-                Component.literal("6-Digit Verification PIN:").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
-                fieldX,
-                boxY + 138,
-                0xFFFFFFFF,
-                true
-        );
+            // Step 2 Label: "Enter 6-Digit Code sent by bot to @" + username
+            String promptText = "Enter 6-Digit Code sent by bot to " + this.requestedTag + ":";
+            guiGraphics.drawString(
+                    font,
+                    Component.literal(promptText).withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD),
+                    fieldX,
+                    boxY + 70,
+                    0xFFFFFFFF,
+                    true
+            );
+        }
 
-        // 6. Dynamic Feedback Status (Non-intrusive inline label with full 0xFF alpha and drop-shadow)
+        // Dynamic Feedback Status (Non-intrusive inline label with full 0xFF alpha and drop-shadow)
         if (!this.statusMessage.getString().isEmpty()) {
             int statusWidth = font.width(this.statusMessage);
             int textColor = this.isSuccessStatus ? 0xFF55FF55 : 0xFFFF5555;
@@ -315,7 +381,7 @@ public class ProfileTab implements AituTab {
                     font,
                     this.statusMessage,
                     centerX - (statusWidth / 2),
-                    boxY + 218,
+                    boxY + 200,
                     textColor,
                     true
             );

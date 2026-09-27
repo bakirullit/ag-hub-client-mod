@@ -170,7 +170,7 @@ public class SettingsTab implements AituTab {
         );
         guiGraphics.drawString(
                 font,
-                Component.literal("1.2.1 (NeoForge 1.21.1)").withStyle(ChatFormatting.AQUA),
+                Component.literal("1.3.0 (NeoForge 1.21.1)").withStyle(ChatFormatting.AQUA),
                 boxX + 110,
                 boxY + 34,
                 0xFF55FFFF,

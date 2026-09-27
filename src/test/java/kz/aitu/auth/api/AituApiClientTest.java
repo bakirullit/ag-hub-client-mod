@@ -2,8 +2,6 @@ package kz.aitu.auth.api;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AituApiClientTest {
@@ -15,16 +13,16 @@ public class AituApiClientTest {
     }
 
     @Test
-    public void testDefaultDemoFriends() {
-        List<AituApiClient.FriendEntry> friends = AituApiClient.getDefaultDemoFriends();
-        assertNotNull(friends);
-        assertFalse(friends.isEmpty());
+    public void testRequestCodeResultRecord() {
+        AituApiClient.RequestCodeResult ok = AituApiClient.RequestCodeResult.ok("Code sent");
+        assertTrue(ok.success());
+        assertEquals("Code sent", ok.message());
+        assertNull(ok.error());
 
-        boolean hasSmp = friends.stream().anyMatch(f -> f.status().contains("AITU SMP"));
-        boolean hasIdle = friends.stream().anyMatch(f -> f.status().contains("Idle"));
-
-        assertTrue(hasSmp, "Expected at least one friend with 'Playing on AITU SMP'");
-        assertTrue(hasIdle, "Expected at least one friend with 'Idle'");
+        AituApiClient.RequestCodeResult fail = AituApiClient.RequestCodeResult.fail("User not found");
+        assertFalse(fail.success());
+        assertNull(fail.message());
+        assertEquals("User not found", fail.error());
     }
 
     @Test
@@ -40,6 +38,43 @@ public class AituApiClientTest {
         assertFalse(fail.success());
         assertNull(fail.sessionToken());
         assertEquals("Invalid PIN", fail.error());
+    }
+
+    @Test
+    public void testFriendItemRecordAndStatus() {
+        AituApiClient.FriendItem smpFriend = new AituApiClient.FriendItem("Alikhan", "@alikhan", "Playing on AITU SMP", true);
+        assertTrue(smpFriend.isOnline());
+        assertTrue(smpFriend.isPlayingSmp());
+        assertEquals("Alikhan", smpFriend.nickname());
+
+        AituApiClient.FriendItem onlineFriend = new AituApiClient.FriendItem("Dias", "@dias", "Online", true);
+        assertTrue(onlineFriend.isOnline());
+        assertFalse(onlineFriend.isPlayingSmp());
+
+        AituApiClient.FriendItem offlineFriend = new AituApiClient.FriendItem("Aruzhan", "@aruzhan", "Offline", false);
+        assertFalse(offlineFriend.isOnline());
+        assertFalse(offlineFriend.isPlayingSmp());
+    }
+
+    @Test
+    public void testFriendRequestItemRecord() {
+        AituApiClient.FriendRequestItem req = new AituApiClient.FriendRequestItem("req_1", "Temirlan", "@temirlan", "2 mins ago");
+        assertEquals("req_1", req.id());
+        assertEquals("Temirlan", req.fromNickname());
+        assertEquals("@temirlan", req.fromTag());
+        assertEquals("2 mins ago", req.timestamp());
+    }
+
+    @Test
+    public void testActionResultRecord() {
+        AituApiClient.ActionResult ok = AituApiClient.ActionResult.ok("Accepted");
+        assertTrue(ok.success());
+        assertEquals("Accepted", ok.message());
+        assertNull(ok.error());
+
+        AituApiClient.ActionResult fail = AituApiClient.ActionResult.fail("Declined");
+        assertFalse(fail.success());
+        assertEquals("Declined", fail.error());
     }
 
     @Test
